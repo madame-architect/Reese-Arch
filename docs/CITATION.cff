@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+title: "Reese-Arch: Agent-Driven Experiment Planning and Deterministic Compute for Reproducible Science"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - name: "Reese-Arch Contributors"
+repository-code: "https://github.com/madame-architect/Reese-Arch"
+license: "MIT"
+version: "0.1.0"
+date-released: "2025-09-01"
+keywords:
+  - reproducible research
+  - agentic AI
+  - deterministic compute
+  - evidence cards

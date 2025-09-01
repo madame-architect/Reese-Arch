@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Compute-Engine API
+  version: 0.1.0
+  description: Deterministic execution of core statistical methods and Evidence Card rendering.
+servers:
+  - url: http://localhost:8081
+paths:
+  /v1/execute:
+    post:
+      summary: Execute deterministic stats & power for a plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan_json:
+                  $ref: "#/components/schemas/Plan"
+              required: [plan_json]
+      responses:
+        "200":
+          description: Execution results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionResult"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /v1/render:
+    post:
+      summary: Render Evidence Card and Provenance Manifest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan_json: { $ref: "#/components/schemas/Plan" }
+                results_json: { $ref: "#/components/schemas/ExecutionResult" }
+                run_id: { type: string }
+              required: [plan_json, results_json, run_id]
+      responses:
+        "200":
+          description: Artifact paths
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderResponse"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+components:
+  responses:
+    Unprocessable:
+      description: Validation error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    # Keep plan schema consistent with Agent Researcher (subset for v0.1)
+    Plan:
+      type: object
+      required: [dataset, cohorts, endpoint, analysis]
+      properties:
+        question: { type: string }
+        dataset:
+          type: object
+          required: [uri, dict]
+          properties:
+            uri: { type: string, pattern: "^local://data/" }
+            dict: { type: string, pattern: "^local://data/" }
+        cohorts:
+          type: object
+          required: [baseline, proposed]
+          properties:
+            baseline: { $ref: "#/components/schemas/Filter" }
+            proposed: { $ref: "#/components/schemas/Filter" }
+        endpoint:
+          type: object
+          required: [type]
+          properties:
+            type: { type: string, enum: [continuous, binary] }
+            value: { type: string }
+        analysis:
+          type: object
+          required: [stat, power]
+          properties:
+            stat: { type: string, enum: [mean_diff, prop_diff] }
+            power:
+              type: object
+              required: [method, alpha, n_per_arm, target]
+              properties:
+                method: { type: string, enum: [normal_approx, chi2] }
+                alpha: { type: number, minimum: 0, maximum: 1 }
+                n_per_arm: { type: integer, minimum: 1 }
+                target: { type: number, minimum: 0, maximum: 1 }
+                effect_assumed: { type: number, nullable: true }
+                p1_assumed: { type: number, nullable: true }
+                p2_assumed: { type: number, nullable: true }
+        fairness:
+          type: object
+          properties:
+            subgroups:
+              type: array
+              items: { type: string }
+        privacy:
+          type: object
+          properties:
+            small_cell_k: { type: integer, default: 10 }
+        seed: { type: integer }
+    Filter:
+      oneOf:
+        - $ref: "#/components/schemas/FilterAnd"
+        - $ref: "#/components/schemas/FilterOr"
+        - $ref: "#/components/schemas/FilterNot"
+        - $ref: "#/components/schemas/Predicate"
+    FilterAnd:
+      type: object
+      required: [and]
+      properties:
+        and:
+          type: array
+          items: { $ref: "#/components/schemas/Filter" }
+    FilterOr:
+      type: object
+      required: [or]
+      properties:
+        or:
+          type: array
+          items: { $ref: "#/components/schemas/Filter" }
+    FilterNot:
+      type: object
+      required: [not]
+      properties:
+        not: { $ref: "#/components/schemas/Filter" }
+    Predicate:
+      type: object
+      required: [col, op, val]
+      properties:
+        col: { type: string }
+        op: { type: string, enum: ["==","!=",">",">=","<","<=","in","not_in","between"] }
+        val:
+          oneOf:
+            - type: number
+            - type: string
+            - type: array
+    ExecutionResult:
+      type: object
+      properties:
+        cohorts:
+          type: object
+          properties:
+            baseline: { type: object, properties: { n: { type: integer } } }
+            proposed: { type: object, properties: { n: { type: integer }, delta_abs: { type: integer }, delta_pct: { type: number } } }
+        summary:
+          type: object
+          description: Effect estimate and confidence interval (shape depends on endpoint)
+        power:
+          type: object
+          properties:
+            method: { type: string }
+            n_per_arm: { type: integer }
+            power: { type: number }
+            exploratory: { type: boolean, default: false }
+        fairness:
+          type: object
+          additionalProperties: true
+        warnings:
+          type: array
+          items: { type: string }
+    RenderResponse:
+      type: object
+      properties:
+        card_md: { type: string }
+        card_pdf: { type: string, nullable: true }
+        manifest: { type: string }
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object }
