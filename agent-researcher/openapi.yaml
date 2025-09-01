@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: Agent Researcher API
+  version: 0.1.0
+  description: >
+    Turns scientific questions into validated analysis plans, orchestrates execution,
+    applies a bounded autotune policy, and returns Evidence Card artifacts.
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/plan.draft:
+    post:
+      summary: Draft a plan from a natural-language question
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                defaults:
+                  type: object
+      responses:
+        "200":
+          description: Plan draft
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan_json:
+                    $ref: "#/components/schemas/Plan"
+                  plan_yaml:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/run:
+    post:
+      summary: Validate → Execute → (Autotune once) → Render
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties: { plan_json: { $ref: "#/components/schemas/Plan" } }
+                  required: [plan_json]
+                - type: object
+                  properties: { plan_yaml: { type: string } }
+                  required: [plan_yaml]
+      responses:
+        "200":
+          description: Run accepted; artifacts produced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+components:
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unprocessable:
+      description: Schema or validation error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Plan:
+      type: object
+      required: [dataset, cohorts, endpoint, analysis]
+      properties:
+        question: { type: string }
+        dataset:
+          type: object
+          required: [uri, dict]
+          properties:
+            uri: { type: string, pattern: "^local://data/" }
+            dict: { type: string, pattern: "^local://data/" }
+        cohorts:
+          type: object
+          required: [baseline, proposed]
+          properties:
+            baseline: { $ref: "#/components/schemas/Filter" }
+            proposed: { $ref: "#/components/schemas/Filter" }
+        endpoint:
+          type: object
+          required: [type]
+          properties:
+            type: { type: string, enum: [continuous, binary] }
+            value: { type: string }
+        analysis:
+          type: object
+          required: [stat, power]
+          properties:
+            stat: { type: string, enum: [mean_diff, prop_diff] }
+            power:
+              type: object
+              required: [method, alpha, n_per_arm, target]
+              properties:
+                method: { type: string, enum: [normal_approx, chi2] }
+                alpha: { type: number, minimum: 0, maximum: 1 }
+                n_per_arm: { type: integer, minimum: 1 }
+                target: { type: number, minimum: 0, maximum: 1 }
+                effect_assumed: { type: number, nullable: true }
+                p1_assumed: { type: number, nullable: true }
+                p2_assumed: { type: number, nullable: true }
+        fairness:
+          type: object
+          properties:
+            subgroups:
+              type: array
+              items: { type: string }
+        policy:
+          type: object
+          properties:
+            autotune:
+              type: object
+              properties:
+                enable: { type: boolean, default: true }
+                param: { type: string, default: "analysis.power.n_per_arm" }
+                factor: { type: number, default: 1.15 }
+                max_times: { type: integer, default: 1 }
+        privacy:
+          type: object
+          properties:
+            small_cell_k: { type: integer, default: 10 }
+        seed: { type: integer }
+    Filter:
+      oneOf:
+        - $ref: "#/components/schemas/FilterAnd"
+        - $ref: "#/components/schemas/FilterOr"
+        - $ref: "#/components/schemas/FilterNot"
+        - $ref: "#/components/schemas/Predicate"
+    FilterAnd:
+      type: object
+      required: [and]
+      properties:
+        and:
+          type: array
+          items: { $ref: "#/components/schemas/Filter" }
+    FilterOr:
+      type: object
+      required: [or]
+      properties:
+        or:
+          type: array
+          items: { $ref: "#/components/schemas/Filter" }
+    FilterNot:
+      type: object
+      required: [not]
+      properties:
+        not: { $ref: "#/components/schemas/Filter" }
+    Predicate:
+      type: object
+      required: [col, op, val]
+      properties:
+        col: { type: string }
+        op: { type: string, enum: ["==","!=",">",">=","<","<=","in","not_in","between"] }
+        val:
+          oneOf:
+            - type: number
+            - type: string
+            - type: array
+    RunResponse:
+      type: object
+      properties:
+        run_id: { type: string }
+        final_plan_yaml: { type: string }
+        results_json_path: { type: string }
+        card_md: { type: string }
+        card_pdf: { type: string, nullable: true }
+        manifest: { type: string }
+        notes:
+          type: array
+          items: { type: string }
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object }
