@@ -1,18 +1,17 @@
-# Reese-Arch
+# Agentic MVP
 
-This repository contains a tiny example Python script used for demonstration purposes.
+## Quickstart
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python scripts/make_synth_data.py
+uvicorn app.main:app --reload --port 8080
+```
 
-## Instructions
+## Example
+```bash
+curl -X POST http://localhost:8080/plan -H "Content-Type: application/json" -d '{}'
+```
 
-1. Ensure you have Python 3 installed.
-2. Run the example script:
-   ```bash
-   python main.py
-   ```
-   The script prints a greeting and demonstrates a small utility function.
-
-## Development Notes
-
-- The code is heavily commented for clarity.
-- Feel free to modify and experiment.
-
+Artifacts are written under `runs/<run_id>/`.

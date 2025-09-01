@@ -1,0 +1,31 @@
+columns:
+  age:
+    role: cohort_field
+    type: int
+  age_band:
+    categories:
+    - <65
+    - 65-74
+    - 75+
+    role: subgroup_field
+  endpoint_value:
+    endpoint_type: continuous
+    role: endpoint
+  event_flag:
+    role: endpoint_flag
+  event_time:
+    endpoint_type: time_to_event
+    role: endpoint
+  id:
+    role: id
+  score:
+    role: cohort_field
+    type: float
+  sex:
+    categories:
+    - F
+    - M
+    role: subgroup_field
+dataset_id: ds_demo
+files:
+- path: /workspace/Reese-Arch/data/data.parquet
