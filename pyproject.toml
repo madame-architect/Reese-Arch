@@ -1,0 +1,9 @@
+[project]
+name = "agentic-mvp"
+version = "0.1.0"
+description = "Agentic micro-API MVP"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.black]
+line-length = 88

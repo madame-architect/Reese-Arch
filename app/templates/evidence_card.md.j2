@@ -1,0 +1,11 @@
+# Evidence Card
+
+**Question**: {{ results.get('question', '') }}
+
+## Plan
+```yaml
+{{ plan_yaml }}
+```
+
+## Results
+{{ results | tojson(indent=2) }}
